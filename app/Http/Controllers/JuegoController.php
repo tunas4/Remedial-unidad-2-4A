@@ -7,6 +7,7 @@ use App\Models\Letra;
 use App\Models\Partida;
 use Illuminate\Http\Request;
 use \Faker\Factory;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Support\Facades\Validator;
 use Twilio\Rest\Client;
@@ -14,43 +15,27 @@ use Twilio\Rest\Client;
 class JuegoController extends Controller
 {
     public function crearPartida(Request $request)
-{
-    $token = $request->bearerToken();
+    {
+        $token = $request->bearerToken();
 
-    $accessToken = PersonalAccessToken::findToken($token);
+        $accessToken = PersonalAccessToken::findToken($token);
 
-    $user = $accessToken->tokenable;
+        $user = $accessToken->tokenable;
 
-    $palabras = [
-        'manzana', 'perro', 'cielo', 'árbol', 'puente', 'montaña', 'río', 'nube',
-        'sol', 'luna', 'estrella', 'mariposa', 'flor', 'auto', 'camino', 'ciudad',
-        'libro', 'silla', 'mesa', 'lámpara', 'computadora', 'teléfono', 'ratón',
-        'teclado', 'ventana', 'puerta', 'pared', 'techo', 'piso', 'jardín', 'parque',
-        'bicicleta', 'avión', 'tren', 'barco', 'casa', 'edificio', 'escuela', 'iglesia',
-        'pelota', 'juguete', 'reloj', 'gafas', 'sombrero', 'zapato', 'camisa', 'pantalón',
-        'corbata', 'abrigo', 'bufanda', 'guante', 'botella', 'taza', 'plato', 'cuchillo',
-        'tenedor', 'cuchara', 'piedra', 'arena', 'pasto', 'hoja', 'rama', 'fruta',
-        'verdura', 'pan', 'queso', 'leche', 'huevo', 'pollo', 'carne', 'pescado',
-        'tigre', 'león', 'elefante', 'jirafa', 'mono', 'caballo', 'vaca', 'oveja',
-        'cerdo', 'gato', 'conejo', 'pájaro', 'pez', 'serpiente', 'rana', 'cocodrilo',
-        'tortuga', 'delfín', 'ballena', 'murciélago', 'abeja', 'hormiga', 'araña',
-        'mosca', 'grillo', 'escorpión', 'lagarto'
-    ];
+        $response = Http::get('https://clientes.api.greenborn.com.ar/public-random-word');
+        
+        $palabra = trim($response->body(), '[]"');
 
-    // Seleccionar una palabra al azar
-    $palabra = $palabras[array_rand($palabras)];
+        $partida = Partida::create([
+            'user_id' => $user->id,
+            'palabra' => $palabra,
+            'estado' => 'por empezar',
+        ]);
 
-    $partida = Partida::create([
-        'user_id' => $user->id,
-        'palabra' => $palabra,
-        'estado' => 'por empezar',
-    ]);
-
-    return response()->json([
-        'message' => 'Partida creada con éxito'
-    ], 201);
-}
-
+        return response()->json([
+            'message' => 'Partida creada con éxito'
+        ], 201);
+    }
 
     public function obtenerPartidas(Request $request)
     {
