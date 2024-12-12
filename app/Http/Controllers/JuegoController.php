@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Letra;
 use App\Models\Partida;
 use Illuminate\Http\Request;
-use \Faker\Factory;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Support\Facades\Validator;
@@ -134,17 +133,16 @@ class JuegoController extends Controller
             ->where('partida_id', $partida->id)
             ->exists();
 
-            $validate = Validator::make($request->all(), [
-                'letra' => 'required|string|min:1|max:1|regex:/^[a-z]$/i',
-            ]);
-    
-            if ($validate->fails())
-            {
-                return response()->json([
-                    'message' => 'Letra no proporcionada',
-                    'errors' => $validate->errors()
-                ], 400);
-            }
+        $validate = Validator::make($request->all(), [
+            'letra' => 'required|string|min:1|max:1|regex:/^[a-záéíóúñ]$/u',
+        ]);
+
+        if ($validate->fails())
+        {
+            return response()->json([
+                'errors' => $validate->errors()
+            ], 400);
+        }
 
         if ($letrasUsadas)
         {
