@@ -38,7 +38,7 @@ class AuthController extends Controller
         }
 
         $sid    = env('SID_TWILIO');
-            $token  = env('TOKEN_TWILIO');
+        $token  = env('TOKEN_TWILIO');
         $twilio = new Client($sid, $token);
 
         $codigo = rand(100000, 999999);
@@ -84,9 +84,23 @@ class AuthController extends Controller
     public function activateAccount(Request $request)
     {
         $validate = Validator::make($request->all(), [
+            'codigo' => 'required|integer',
+        ]);
+        
+        if ($validate->fails()) 
+        {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validate->errors()
+            ], 400);
+        }
+        
+        $request->merge(['codigo' => str_pad((string) $request->codigo, 6, '0', STR_PAD_LEFT)]);
+        
+        $validate = Validator::make($request->all(), [
             'codigo' => 'required|string|max:6|min:6',
         ]);
-
+        
         if ($validate->fails()) 
         {
             return response()->json([
@@ -102,7 +116,7 @@ class AuthController extends Controller
         if (!$codigo) 
         {
             return response()->json([
-                'message' => 'Codigo de verificacion incorrecto'
+                'message' => 'Codigo de verificacion incorrecto o cuenta ya activada'
             ], 400);
         }
 
@@ -131,6 +145,8 @@ class AuthController extends Controller
                 'message' => 'Error al activar la cuenta'
             ], 400);
         }
+
+        $codigo->delete();
 
         return response()->json([
             'message' => 'Cuenta activada',

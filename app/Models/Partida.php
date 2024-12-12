@@ -13,6 +13,7 @@ class Partida extends Model
         'user_id',
         'palabra',
         'estado',
+        'longitud',
     ];
 
     public function user()

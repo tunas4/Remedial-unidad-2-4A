@@ -11,7 +11,8 @@ class Letra extends Model
 
     protected $fillable = [
         'partida_id',
-        'letra'
+        'letra',
+        'palabra',
     ];
 
     public function partida()

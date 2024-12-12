@@ -25,8 +25,6 @@ Route::prefix('v1')->group(function ()
         ->middleware('jugador');
     Route::get('partida', [App\Http\Controllers\JuegoController::class, 'obtenerPartidas'])
         ->middleware('jugador');
-    Route::post('jugar', [App\Http\Controllers\JuegoController::class, 'jugar'])
-        ->middleware('jugador');
     Route::post('unirse/{partidaId}', [App\Http\Controllers\JuegoController::class, 'unirsePartida'])
         ->middleware('jugador');
 
@@ -44,4 +42,7 @@ Route::prefix('v1')->group(function ()
 
     Route::post('desactivar-jugador', [App\Http\Controllers\AdminController::class, 'desactivarJugador'])
         ->middleware('admin');
+
+    Route::post('wordle', [App\Http\Controllers\WordleController::class, 'jugar'])
+        ->middleware('jugador');
 });

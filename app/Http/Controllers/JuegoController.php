@@ -23,16 +23,20 @@ class JuegoController extends Controller
 
         $response = Http::get('https://clientes.api.greenborn.com.ar/public-random-word');
         
-        $palabra = trim($response->body(), '[]"');
+        $palabra = trim($response->body(), '[]" ');
+
+        $longitud = strlen($palabra);
 
         $partida = Partida::create([
             'user_id' => $user->id,
             'palabra' => $palabra,
+            'longitud' => $longitud,
             'estado' => 'por empezar',
         ]);
 
         return response()->json([
-            'message' => 'Partida creada con éxito'
+            'message' => 'Partida creada con éxito',
+            'longitud' => 'Longitud de la palabra: ' . $longitud
         ], 201);
     }
 
@@ -101,8 +105,12 @@ class JuegoController extends Controller
         $partida->estado = 'jugando';
         $partida->save();
 
+        
+        $longitud = strlen($partida->palabra);
+
         return response()->json([
             'message' => 'Te has unido a la partida con éxito',
+            'longitud' => 'Longitud de la palabra: ' . $longitud
         ], 200);
     }
 
@@ -297,11 +305,11 @@ class JuegoController extends Controller
         return $palabraProgreso;
     }
 
-    public function progreso()
+    public function progreso(Request $request)
     {
         $intentosMaximos = env('INTENTOS');
 
-        $token = request()->bearerToken();
+        $token = $request->bearerToken();
 
         $accessToken = PersonalAccessToken::findToken($token);
 
@@ -312,51 +320,61 @@ class JuegoController extends Controller
             ->whereIn('estado', ['jugando'])
             ->first();
 
-        if (!$partida)
+        if (!$partida) 
         {
             return response()->json([
                 'message' => 'No hay partida en curso'
             ], 404);
         }
 
-        $palabra = str_split($partida->palabra);
-        $letrasAdivinadas = Letra::where('partida_id', $partida->id)->pluck('letra')->toArray();
+        $palabraAdivinar = str_split($partida->palabra);
 
-        $palabraProgreso = $this->revelarPalabra($palabra, $letrasAdivinadas);
+        $palabrasUsadas = Letra::query()
+            ->where('partida_id', $partida->id)
+            ->get();
 
-        $letrasIncorrectas = array_filter($letrasAdivinadas, function ($letra) use ($palabra) {
-            return !in_array($letra, $palabra);
-        });
+        $cantPalabrasUsadas = $palabrasUsadas->count();
+        $intentosRestantes = $intentosMaximos - $cantPalabrasUsadas;
 
-        $letrasCorrectas = array_filter($letrasAdivinadas, function ($letra) use ($palabra) {
-            return in_array($letra, $palabra);
-        });
+        $progresoPalabra = array_fill(0, count($palabraAdivinar), '_');
+        $resultadoPalabras = [];
 
-        $intentosRestantes = $intentosMaximos - count($letrasIncorrectas);
+        foreach ($palabrasUsadas as $palabraIntento) 
+        {
+            $letrasIntento = str_split($palabraIntento->palabra);
+            $mensajes = [];
 
-        $sid    = env('SID_TWILIO');
-        $token  = env('TOKEN_TWILIO');
-        $twilio = new Client($sid, $token);
+            for ($i = 0; $i < count($palabraAdivinar); $i++) 
+            {
+                if (isset($letrasIntento[$i])) 
+                {
+                    if ($letrasIntento[$i] === $palabraAdivinar[$i]) 
+                    {
+                        $progresoPalabra[$i] = $letrasIntento[$i];
+                        $mensajes[] = 'La letra ' . $letrasIntento[$i] . ' es correcta';
+                    } 
+                    elseif (in_array($letrasIntento[$i], $palabraAdivinar)) 
+                    {
+                        $mensajes[] = 'La letra ' . $letrasIntento[$i] . ' está en la palabra pero en una posición incorrecta';
+                    } 
+                    else 
+                    {
+                        $mensajes[] = 'La letra ' . $letrasIntento[$i] . ' no está en la palabra';
+                    }
+                }
+            }
 
-        $message = $twilio->messages->create(
-            "whatsapp:+5212228996530",
-            array(
-                "from" => "whatsapp:+14155238886",
-                "body" => "
-                    Progreso
-                    \nPalabra: $palabraProgreso
-                    \nIntentos restantes: $intentosRestantes
-                    \nLetras incorrectas: " . implode(', ', $letrasIncorrectas) . 
-                    "\nLetras correctas: " . implode(', ', $letrasCorrectas)
-            )
-        );
+            $resultadoPalabras[] = [
+                'palabraUsada' => $palabraIntento->palabra,
+                'mensajes' => $mensajes
+            ];
+        }
 
         return response()->json([
-            'palabraProgreso' => $palabraProgreso,
-            'intentosRestantes' => $intentosRestantes,
-            'letrasCorrectas' => $letrasCorrectas,
-            'letrasIncorrectas' => $letrasIncorrectas
-        ]);
+            'progresoPalabra' => $progresoPalabra,
+            'resultadoPalabras' => $resultadoPalabras,
+            'intentosRestantes' => $intentosRestantes
+        ], 200);
     }
 
     public function historialJuegos(Request $request)
