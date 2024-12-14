@@ -23,16 +23,20 @@ class JuegoController extends Controller
 
         $response = Http::get('https://clientes.api.greenborn.com.ar/public-random-word');
         
-        $palabra = trim($response->body(), '[]"');
+        $palabra = trim($response->body(), '[]" ');
+
+        $longitud = strlen($palabra);
 
         $partida = Partida::create([
             'user_id' => $user->id,
             'palabra' => $palabra,
+            'longitud' => $longitud,
             'estado' => 'por empezar',
         ]);
 
         return response()->json([
-            'message' => 'Partida creada con éxito'
+            'message' => 'Partida creada con éxito',
+            'longitud' => 'Longitud de la palabra: ' . $longitud
         ], 201);
     }
 
