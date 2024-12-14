@@ -17,9 +17,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () 
 {
-    Route::post('register', [App\Http\Controllers\AuthController::class, 'register']);
-    Route::post('activate-account', [App\Http\Controllers\AuthController::class, 'activateAccount']);
-    Route::post('login', [App\Http\Controllers\AuthController::class, 'login']);
+    Route::post('registro', [App\Http\Controllers\AuthController::class, 'register']);
+    Route::post('activar-cuenta', [App\Http\Controllers\AuthController::class, 'activateAccount']);
+    Route::post('iniciar-sesion', [App\Http\Controllers\AuthController::class, 'login']);
     
     Route::post('partida', [App\Http\Controllers\JuegoController::class, 'crearPartida'])
         ->middleware('jugador');

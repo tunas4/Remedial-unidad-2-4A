@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\slack;
 use App\Models\Letra;
 use App\Models\Partida;
 use Illuminate\Http\Request;
@@ -24,6 +25,12 @@ class JuegoController extends Controller
         $response = Http::get('https://clientes.api.greenborn.com.ar/public-random-word');
         
         $palabra = trim($response->body(), '[]" ');
+
+        $palabra = str_replace(
+            ['á', 'é', 'í', 'ó', 'ú', 'ü', 'ñ'],
+            ['a', 'e', 'i', 'o', 'u', 'u', 'n'],
+            $palabra
+        );
 
         $longitud = strlen($palabra);
 
@@ -129,11 +136,20 @@ class JuegoController extends Controller
             ->whereIn('estado', ['jugando'])
             ->first();
 
-        if (!$partida)
-        {
+        if (!$partida) {
             return response()->json([
                 'message' => 'Partida no encontrada'
             ], 404);
+        }
+
+        $validate = Validator::make($request->all(), [
+            'letra' => 'required|string|min:1|max:1|regex:/^[a-z]$/u',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json([
+                'errors' => $validate->errors()
+            ], 400);
         }
 
         $letrasUsadas = Letra::query()
@@ -141,19 +157,7 @@ class JuegoController extends Controller
             ->where('partida_id', $partida->id)
             ->exists();
 
-        $validate = Validator::make($request->all(), [
-            'letra' => 'required|string|min:1|max:1|regex:/^[a-záéíóúñ]$/u',
-        ]);
-
-        if ($validate->fails())
-        {
-            return response()->json([
-                'errors' => $validate->errors()
-            ], 400);
-        }
-
-        if ($letrasUsadas)
-        {
+        if ($letrasUsadas) {
             return response()->json([
                 'message' => 'Letra ya usada'
             ], 400);
@@ -174,8 +178,14 @@ class JuegoController extends Controller
                 ->get()
         );
 
-        if ($intentosRestantes <= 0)
-        {
+        if ($intentosRestantes <= 0) {
+            $resumen = "Resumen de la partida:\n";
+            $resumen .= "Estado: Perdida\n";
+            $resumen .= "Palabra: $palabra\n";
+            $resumen .= "Letras usadas: " . implode(', ', $letrasUsadas) . "\n";
+
+            dispatch(new slack($resumen))->delay(now()->addSeconds(60));
+
             $sid    = env('SID_TWILIO');
             $token  = env('TOKEN_TWILIO');
             $twilio = new Client($sid, $token);
@@ -195,8 +205,7 @@ class JuegoController extends Controller
             ], 400);
         }
 
-        if (!str_contains($palabra, $request->letra))
-        {
+        if (!str_contains($palabra, $request->letra)) {
             Letra::create([
                 'partida_id' => $partida->id,
                 'letra' => $request->letra,
@@ -214,7 +223,7 @@ class JuegoController extends Controller
                 "whatsapp:+5212228996530",
                 array(
                     "from" => "whatsapp:+14155238886",
-                    "body" => "Letra incorrecta: $request->letra\nIntentos restantes: $intentosRestantes\nPalabra: " . $palabraProgreso, "intentos_restantes" => $intentosRestantes
+                    "body" => "Letra incorrecta: $request->letra\nIntentos restantes: $intentosRestantes\nPalabra: " . $palabraProgreso,
                 )
             );
 
@@ -223,9 +232,7 @@ class JuegoController extends Controller
                 'palabraProgreso' => $this->revelarPalabra($arregloPalabra, $letrasUsadas),
                 'intentosRestantes' => $intentosRestantes
             ], 400);
-        }
-        else
-        {
+        } else {
             Letra::create([
                 'partida_id' => $partida->id,
                 'letra' => $request->letra,
@@ -238,29 +245,13 @@ class JuegoController extends Controller
             $letrasUsadas[] = $request->letra;
             $palabraProgreso = $this->revelarPalabra($arregloPalabra, $letrasUsadas);
 
-            $message = $twilio->messages->create(
-                "whatsapp:+5212228996530",
-                array(
-                    "from" => "whatsapp:+14155238886",
-                    "body" => "Letra correcta: $request->letra\nIntentos restantes: $intentosRestantes\nPalabra: $palabraProgreso",
-                    "intentos_restantes" => $intentosRestantes
-                )
-            );
+            if ($palabraProgreso == implode(' ', $arregloPalabra)) {
+                $resumen = "Resumen de la partida:\n";
+                $resumen .= "Estado: Ganada\n";
+                $resumen .= "Palabra: $palabra\n";
+                $resumen .= "Letras usadas: " . implode(', ', $letrasUsadas) . "\n";
 
-            $palabraAdivinarArray = str_split($partida->palabra);
-
-            $palabraAdivinar = '';
-
-            foreach ($palabraAdivinarArray as $letra)
-            {
-                $palabraAdivinar .= ' ' . $letra;
-            }
-
-            if ($palabraProgreso == $palabraAdivinar) 
-            {
-                $sid    = env('SID_TWILIO');
-                $token  = env('TOKEN_TWILIO');
-                $twilio = new Client($sid, $token);
+                dispatch(new slack($resumen))->delay(now()->addSeconds(60));
 
                 $message = $twilio->messages->create(
                     "whatsapp:+5212228996530",
@@ -277,6 +268,14 @@ class JuegoController extends Controller
                     'intentos_restantes' => $intentosRestantes
                 ], 200);
             }
+
+            $message = $twilio->messages->create(
+                "whatsapp:+5212228996530",
+                array(
+                    "from" => "whatsapp:+14155238886",
+                    "body" => "Letra correcta: $request->letra\nIntentos restantes: $intentosRestantes\nPalabra: $palabraProgreso",
+                )
+            );
 
             return response()->json([
                 'message' => 'Letra correcta',
@@ -411,25 +410,58 @@ class JuegoController extends Controller
     public function abandonarPartida(Request $request)
     {
         $token = $request->bearerToken();
-    
+
         $accessToken = PersonalAccessToken::findToken($token);
-    
+
         $user = $accessToken->tokenable;
-    
+
         $partida = Partida::query()
             ->where('user_id', $user->id)
             ->whereIn('estado', ['jugando'])
             ->first();
-    
+
         if (!$partida || $partida->user_id != $user->id) 
         {
             return response()->json([
                 'message' => 'Partida no encontrada'
             ], 404);
         }
-    
+
         $partida->estado = 'perdida';
         $partida->save();
+
+        $intentosMaximos = env('INTENTOS');
+        $palabraAdivinar = str_split($partida->palabra);
+
+        $palabrasUsadas = Letra::query()
+            ->where('partida_id', $partida->id)
+            ->get();
+
+        $cantPalabrasUsadas = $palabrasUsadas->count();
+        $intentosRestantes = $intentosMaximos - $cantPalabrasUsadas;
+
+        $progresoPalabra = array_fill(0, count($palabraAdivinar), '_');
+        $resultadoMensajes = [];
+
+        foreach ($palabrasUsadas as $palabraIntento) 
+        {
+            $letrasIntento = str_split($palabraIntento->palabra);
+
+            for ($i = 0; $i < count($palabraAdivinar); $i++) 
+            {
+                if (isset($letrasIntento[$i]) && $letrasIntento[$i] === $palabraAdivinar[$i]) 
+                {
+                    $progresoPalabra[$i] = $letrasIntento[$i];
+                }
+            }
+
+            $resultadoMensajes[] = "Intento: {$palabraIntento->palabra}";
+        }
+
+        $resumen = "Resumen de la partida abandonada:\n";
+        $resumen .= "Progreso actual: " . implode(' ', $progresoPalabra) . "\n";
+        $resumen .= "Intentos restantes: {$intentosRestantes}\n";
+        $resumen .= "Palabras usadas:\n" . implode("\n", $resultadoMensajes);
 
         $sid    = env('SID_TWILIO');
         $token  = env('TOKEN_TWILIO');
@@ -442,7 +474,9 @@ class JuegoController extends Controller
                 "body" => "Palabra: " . $partida->palabra,
             )
         );
-    
+
+        dispatch(new slack($resumen))->delay(now()->addSeconds(60));
+
         return response()->json([
             'message' => 'Partida abandonada',
         ], 200);
