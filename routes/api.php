@@ -17,9 +17,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () 
 {
-    Route::post('register', [App\Http\Controllers\AuthController::class, 'register']);
-    Route::post('activate-account', [App\Http\Controllers\AuthController::class, 'activateAccount']);
-    Route::post('login', [App\Http\Controllers\AuthController::class, 'login']);
+    Route::post('registro', [App\Http\Controllers\AuthController::class, 'register']);
+    Route::post('activar-cuenta', [App\Http\Controllers\AuthController::class, 'activateAccount']);
+    Route::post('iniciar-sesion', [App\Http\Controllers\AuthController::class, 'login']);
     
     Route::post('partida', [App\Http\Controllers\JuegoController::class, 'crearPartida'])
         ->middleware('jugador');
@@ -28,6 +28,7 @@ Route::prefix('v1')->group(function ()
     Route::post('jugar', [App\Http\Controllers\JuegoController::class, 'jugar'])
         ->middleware('jugador');
     Route::post('unirse/{partidaId}', [App\Http\Controllers\JuegoController::class, 'unirsePartida'])
+        ->where('partidaId', '[1-9][0-9]*')
         ->middleware('jugador');
 
     Route::get('progreso', [App\Http\Controllers\JuegoController::class, 'progreso'])

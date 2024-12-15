@@ -140,7 +140,7 @@ class JuegoController extends Controller
         }
     
         $validate = Validator::make($request->all(), [
-            'letra' => 'required|string|min:1|max:1|regex:/^[a-záéíóúñ]$/u',
+            'letra' => 'required|string|min:1|max:1|regex:/^[a-z]$/u',
         ]);
     
         if ($validate->fails()) 
@@ -211,7 +211,7 @@ class JuegoController extends Controller
     
                 $partida->update(['estado' => 'perdida']);
 
-                slack::dispatch($resumen);
+                dispatch(new slack($resumen))->delay(now()->addSeconds(60));
     
                 return response()->json([
                     'message' => 'Has perdido la partida.',
@@ -254,14 +254,11 @@ class JuegoController extends Controller
     
         if (trim(str_replace(' ', '', $palabraProgreso)) === implode('', $arregloPalabra)) 
         {
-            // Partida ganada
-            $letrasIncorrectas = array_filter($letrasUsadas, function ($letra) use ($arregloPalabra) 
-            {
+            $letrasIncorrectas = array_filter($letrasUsadas, function ($letra) use ($arregloPalabra) {
                 return !in_array($letra, $arregloPalabra);
             });
     
-            $letrasCorrectas = array_filter($letrasUsadas, function ($letra) use ($arregloPalabra) 
-            {
+            $letrasCorrectas = array_filter($letrasUsadas, function ($letra) use ($arregloPalabra) {
                 return in_array($letra, $arregloPalabra);
             });
     
@@ -282,7 +279,7 @@ class JuegoController extends Controller
     
             $partida->update(['estado' => 'ganada']);
 
-            dispatch(new slack($resumen));
+            dispatch(new slack($resumen))->delay(now()->addSeconds(60));
     
             return response()->json([
                 'message' => '¡Felicidades! Has adivinado la palabra.',

@@ -102,7 +102,7 @@ class AuthController extends Controller
         if (!$codigo) 
         {
             return response()->json([
-                'message' => 'Codigo de verificacion incorrecto'
+                'message' => 'Codigo de verificacion incorrecto o cuenta ya activada'
             ], 400);
         }
 
@@ -132,6 +132,8 @@ class AuthController extends Controller
             ], 400);
         }
 
+        Codigo::where('user_id', $user->id)->delete();
+
         return response()->json([
             'message' => 'Cuenta activada',
             'user' => $user
@@ -158,7 +160,7 @@ class AuthController extends Controller
         if (!$user)
         {
             return response()->json([
-                'message' => 'El correo no se encuentra registrado'
+                'message' => 'Credenciales incorrectas'
             ], 400);
         }
 
@@ -172,7 +174,7 @@ class AuthController extends Controller
         if (!Hash::check($request->password, $user->password))
         {
             return response()->json([
-                'message' => 'Contraseña incorrecta'
+                'message' => 'Credenciales incorrectas'
             ], 400);
         }
 
