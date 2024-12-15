@@ -26,6 +26,7 @@ Route::prefix('v1')->group(function ()
     Route::get('partida', [App\Http\Controllers\JuegoController::class, 'obtenerPartidas'])
         ->middleware('jugador');
     Route::post('unirse/{partidaId}', [App\Http\Controllers\JuegoController::class, 'unirsePartida'])
+        ->where('partidaId', '[1-9][0-9]*')
         ->middleware('jugador');
 
     Route::get('progreso', [App\Http\Controllers\JuegoController::class, 'progreso'])

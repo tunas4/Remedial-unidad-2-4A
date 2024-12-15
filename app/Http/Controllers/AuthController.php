@@ -15,9 +15,14 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $validate = Validator::make($request->all(), [
-            'name' => 'required|string',
-            'email' => 'required|email',
-            'password' => 'required|string|min:8',
+            'name' => 'required|regex:/^[a-zA-Z\s]+$/u|max:255',
+            'email' => 'required|email|unique:users',
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'regex:/^[A-Za-z\d@$!%*?&]+$/',
+            ],
         ]);
 
         if ($validate->fails())
@@ -37,6 +42,19 @@ class AuthController extends Controller
             ], 400);
         }
 
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => bcrypt($request->password),
+        ]);
+
+        if (!$user)
+        {
+            return response()->json([
+                'message' => 'Error al crear el usuario'
+            ], 400);
+        }
+
         $sid    = env('SID_TWILIO');
         $token  = env('TOKEN_TWILIO');
         $twilio = new Client($sid, $token);
@@ -50,19 +68,6 @@ class AuthController extends Controller
                 "body" => "Tu código de verificación es: $codigo"
             )
         );
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => bcrypt($request->password),
-        ]);
-
-        if (!$user)
-        {
-            return response()->json([
-                'message' => 'Error al crear el usuario'
-            ], 400);
-        }
 
         Codigo::create([
             'user_id' => $user->id,
@@ -174,7 +179,7 @@ class AuthController extends Controller
         if (!$user)
         {
             return response()->json([
-                'message' => 'El correo no se encuentra registrado'
+                'message' => 'Credeniales incorrectas'
             ], 400);
         }
 
@@ -188,7 +193,7 @@ class AuthController extends Controller
         if (!Hash::check($request->password, $user->password))
         {
             return response()->json([
-                'message' => 'Contraseña incorrecta'
+                'message' => 'Credenciales incorrectas'
             ], 400);
         }
 
