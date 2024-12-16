@@ -70,7 +70,7 @@ class JuegoController extends Controller
 
         return response()->json([
             'partidas' => $partidaId
-        ]);
+        ], 200);
     }
 
     public function unirsePartida(Request $request, $partidaId)
@@ -147,7 +147,7 @@ class JuegoController extends Controller
         {
             return response()->json([
                 'errors' => $validate->errors()
-            ], 400);
+            ], 422);
         }
     
         $letra = $request->letra;
@@ -216,7 +216,7 @@ class JuegoController extends Controller
                 return response()->json([
                     'message' => 'Has perdido la partida.',
                     'palabra' => $palabra,
-                ], 400);
+                ], 200);
             }
     
             $palabraProgreso = $this->revelarPalabra($arregloPalabra, Letra::query()
@@ -237,7 +237,7 @@ class JuegoController extends Controller
                 'message' => 'Letra incorrecta',
                 'palabraProgreso' => $palabraProgreso,
                 'intentosRestantes' => $intentosRestantes
-            ], 400);
+            ], 200);
         }
     
         Letra::create([
@@ -270,8 +270,7 @@ class JuegoController extends Controller
     
             $twilio = new Client(env('SID_TWILIO'), env('TOKEN_TWILIO'));
             $twilio->messages->create(
-                "whatsapp:+5212228996530",
-                [
+                "whatsapp:+5212228996530", [
                     "from" => "whatsapp:+14155238886",
                     "body" => "Ganaste\n$resumen",
                 ]
@@ -282,15 +281,14 @@ class JuegoController extends Controller
             dispatch(new slack($resumen))->delay(now()->addSeconds(60));
     
             return response()->json([
-                'message' => '¡Felicidades! Has adivinado la palabra.',
+                'message' => 'Palabra adivinada',
                 'palabra' => $palabra,
             ], 200);
         }
     
         $twilio = new Client(env('SID_TWILIO'), env('TOKEN_TWILIO'));
         $twilio->messages->create(
-            "whatsapp:+5212228996530",
-            [
+            "whatsapp:+5212228996530", [
                 "from" => "whatsapp:+14155238886",
                 "body" => "Letra correcta: $letra\nIntentos restantes: $intentosRestantes\nPalabra: $palabraProgreso",
             ]
@@ -412,7 +410,7 @@ class JuegoController extends Controller
                     'estado' => $partida->estado,
                 ];
             })
-        ]);
+        ], 200);
     }
 
     public function abandonarPartida(Request $request)
