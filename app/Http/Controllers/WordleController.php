@@ -55,8 +55,11 @@ class WordleController extends Controller
             ],
         ]);
 
-        if ($validate->fails()) {
-            return response()->json(['errors' => $validate->errors()], 422);
+        if ($validate->fails()) 
+        {
+            return response()->json([
+                'errors' => $validate->errors()
+            ], 422);
         }
 
         $palabraAdivinar = str_split($partida->palabra);
@@ -67,12 +70,17 @@ class WordleController extends Controller
 
         for ($i = 0; $i < count($palabraAdivinar); $i++) 
         {
-            if ($letras[$i] == $palabraAdivinar[$i]) {
+            if ($letras[$i] == $palabraAdivinar[$i]) 
+            {
                 $arregloMensaje[] = 'La letra ' . $letras[$i] . ' es correcta';
                 $contadorCorrecto++;
-            } elseif (in_array($letras[$i], $palabraAdivinar)) {
+            } 
+            else if (in_array($letras[$i], $palabraAdivinar)) 
+            {
                 $arregloMensaje[] = 'La letra ' . $letras[$i] . ' está en la palabra pero en una posición incorrecta';
-            } else {
+            } 
+            else 
+            {
                 $arregloMensaje[] = 'La letra ' . $letras[$i] . ' no está en la palabra';
             }
         }
@@ -93,10 +101,14 @@ class WordleController extends Controller
             ->get();
 
         $progresoPalabra = array_fill(0, count($palabraAdivinar), '_');
-        foreach ($palabrasUsadas as $palabraIntento) {
+
+        foreach ($palabrasUsadas as $palabraIntento) 
+        {
             $letrasIntento = str_split($palabraIntento->palabra);
-            for ($i = 0; $i < count($palabraAdivinar); $i++) {
-                if (isset($letrasIntento[$i]) && $letrasIntento[$i] === $palabraAdivinar[$i]) {
+            for ($i = 0; $i < count($palabraAdivinar); $i++) 
+            {
+                if (isset($letrasIntento[$i]) && $letrasIntento[$i] === $palabraAdivinar[$i]) 
+                {
                     $progresoPalabra[$i] = $letrasIntento[$i];
                 }
             }
@@ -107,7 +119,9 @@ class WordleController extends Controller
         $resumen .= "Progreso actual: " . implode(' ', $progresoPalabra) . "\n";
         $resumen .= "Intentos restantes: {$intentosRestantes}\n";
         $resumen .= "Palabras usadas:\n";
-        foreach ($palabrasUsadas as $palabraIntento) {
+
+        foreach ($palabrasUsadas as $palabraIntento) 
+        {
             $resumen .= "- " . $palabraIntento->palabra . "\n";
         }
 

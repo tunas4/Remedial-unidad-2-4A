@@ -16,7 +16,7 @@ class AuthController extends Controller
     {
         $validate = Validator::make($request->all(), [
             'name' => 'required|regex:/^[a-zA-Z\s]+$/u|max:255',
-            'email' => 'required|email|unique:users',
+            'email' => 'required|email|unique:users|max:255',
             'password' => [
                 'required',
                 'string',
@@ -25,34 +25,12 @@ class AuthController extends Controller
             ],
         ]);
 
-        if ($validate->fails())
+        if ($validate->fails()) 
         {
             return response()->json([
                 'status' => 'error',
                 'message' => $validate->errors()
-            ], 400);
-        }
-
-        $correoUsado = User::where('email', $request->email)->first();
-
-        if ($correoUsado)
-        {
-            return response()->json([
-                'message' => 'El correo ya se encuentra registrado'
-            ], 400);
-        }
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => bcrypt($request->password),
-        ]);
-
-        if (!$user)
-        {
-            return response()->json([
-                'message' => 'Error al crear el usuario'
-            ], 400);
+            ], 422);
         }
 
         $sid    = env('SID_TWILIO');
@@ -63,23 +41,36 @@ class AuthController extends Controller
 
         $message = $twilio->messages->create(
             "whatsapp:+5212228996530",
-            array(
+            [
                 "from" => "whatsapp:+14155238886",
                 "body" => "Tu código de verificación es: $codigo"
-            )
+            ]
         );
 
-        Codigo::create([
-            'user_id' => $user->id,
-            'codigo' => Hash::make($codigo),
-        ]);
-
-        if (!$message)
+        if (!$message) 
         {
             return response()->json([
                 'message' => 'Error al enviar el codigo de verificacion'
             ], 400);
         }
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => bcrypt($request->password),
+        ]);
+
+        if (!$user) 
+        {
+            return response()->json([
+                'message' => 'Error al crear el usuario'
+            ], 400);
+        }
+
+        Codigo::create([
+            'user_id' => $user->id,
+            'codigo' => Hash::make($codigo),
+        ]);
 
         return response()->json([
             'message' => 'Se envio un codigo de verificacion'
@@ -91,27 +82,27 @@ class AuthController extends Controller
         $validate = Validator::make($request->all(), [
             'codigo' => 'required|integer',
         ]);
-        
+
         if ($validate->fails()) 
         {
             return response()->json([
                 'status' => 'error',
                 'message' => $validate->errors()
-            ], 400);
+            ], 422);
         }
-        
-        $request->merge(['codigo' => str_pad((string) $request->codigo, 6, '0', STR_PAD_LEFT)]);
-        
+
+        $request->merge(['codigo' => str_pad((string)$request->codigo, 6, '0', STR_PAD_LEFT)]);
+
         $validate = Validator::make($request->all(), [
             'codigo' => 'required|string|max:6|min:6',
         ]);
-        
+
         if ($validate->fails()) 
         {
             return response()->json([
                 'status' => 'error',
                 'message' => $validate->errors()
-            ], 400);
+            ], 422);
         }
 
         $codigo = Codigo::all()->first(function ($item) use ($request) {
@@ -121,23 +112,23 @@ class AuthController extends Controller
         if (!$codigo) 
         {
             return response()->json([
-                'message' => 'Codigo de verificacion incorrecto o cuenta ya activada'
+                'message' => 'Código de verificación incorrecto o cuenta ya activada'
             ], 400);
         }
 
         $user = User::where('id', $codigo->user_id)->first();
 
-        if ($user->role == 'desactivado')
-        {
-            return response()->json([
-                'message' => 'Cuenta desactivada'
-            ], 400);
-        }
-
         if (!$user) 
         {
             return response()->json([
                 'message' => 'Error al obtener el usuario'
+            ], 400);
+        }
+
+        if ($user->role == 'desactivado') 
+        {
+            return response()->json([
+                'message' => 'Cuenta desactivada'
             ], 400);
         }
 
@@ -163,23 +154,23 @@ class AuthController extends Controller
     {
         $validate = Validator::make($request->all(), [
             'email' => 'required|email',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string',
         ]);
 
-        if ($validate->fails())
+        if ($validate->fails()) 
         {
             return response()->json([
                 'status' => 'error',
                 'message' => $validate->errors()
-            ], 400);
+            ], 422);
         }
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user)
+        if (!$user) 
         {
             return response()->json([
-                'message' => 'Credeniales incorrectas'
+                'message' => 'Credenciales incorrectas'
             ], 400);
         }
 
@@ -190,7 +181,7 @@ class AuthController extends Controller
             ], 400);
         }
 
-        if (!Hash::check($request->password, $user->password))
+        if (!Hash::check($request->password, $user->password)) 
         {
             return response()->json([
                 'message' => 'Credenciales incorrectas'
@@ -200,7 +191,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Inicio de sesion exitoso',
+            'message' => 'Inicio de sesión exitoso',
             'token' => $token
         ], 200);
     }
